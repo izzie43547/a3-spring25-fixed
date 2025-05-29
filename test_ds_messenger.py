@@ -30,30 +30,29 @@ class TestDirectMessenger(unittest.TestCase):
         
     @patch('socket.socket')
     def test_send_message_success(self, mock_socket):
-        """Test successful message sending"""
+        """Test successful message sending."""
         # Mock the socket and its methods
         mock_sock_instance = Mock()
         mock_socket.return_value = mock_sock_instance
-        mock_sock_instance.makefile.return_value.readline.return_value = json.dumps({
+        mock_file = Mock()
+        mock_file.readline.return_value = json.dumps({
             "response": {"type": "ok", "message": "Message sent"}
         })
+        mock_sock_instance.makefile.return_value = mock_file
         
-        # Initialize and send message
-        self.messenger._connect = Mock()
+        # Initialize and authenticate
+        self.messenger._connect = Mock(return_value=True)
         self.messenger._authenticate = Mock(return_value=True)
         self.messenger.token = "test-token"
+        self.messenger.connected = True
         
-        # Set up the mock response for _receive
-        self.messenger._receive = Mock(return_value=json.dumps({
-            "response": {"type": "ok", "message": "Message sent"}
-        }))
-        
+        # Send message and verify result
         result = self.messenger.send("Hello", "recipient")
         self.assertTrue(result)
         
     @patch('socket.socket')
     def test_retrieve_new_messages(self, mock_socket):
-        """Test retrieving new messages"""
+        """Test retrieving new messages."""
         # Mock server response
         test_messages = [{
             "message": "Hello",
@@ -61,51 +60,71 @@ class TestDirectMessenger(unittest.TestCase):
             "timestamp": time.time()
         }]
         
-        # Set up the mock response for _receive
-        self.messenger._receive = Mock(return_value=json.dumps({
+        # Set up mock socket
+        mock_sock_instance = Mock()
+        mock_socket.return_value = mock_sock_instance
+        mock_file = Mock()
+        mock_file.readline.return_value = json.dumps({
             "response": {
                 "type": "ok",
                 "messages": test_messages
             }
-        }))
+        })
+        mock_sock_instance.makefile.return_value = mock_file
         
-        # Initialize and retrieve messages
-        self.messenger._connect = Mock()
+        # Initialize and authenticate
+        self.messenger._connect = Mock(return_value=True)
         self.messenger._authenticate = Mock(return_value=True)
         self.messenger.token = "test-token"
+        self.messenger.connected = True
         
+        # Retrieve messages and verify results
         messages = self.messenger.retrieve_new()
         self.assertEqual(len(messages), 1)
         self.assertIsInstance(messages[0], DirectMessage)
         self.assertEqual(messages[0].message, "Hello")
         self.assertEqual(messages[0].sender, "user1")
+        self.assertIsNotNone(messages[0].timestamp)
 
     @patch('socket.socket')
     def test_retrieve_all_messages(self, mock_socket):
-        """Test retrieving all messages"""
+        """Test retrieving all messages."""
         # Mock server response
         test_messages = [
             {"message": "Hello", "from": "user1", "timestamp": time.time()},
-            {"message": "Hi", "recipient": "user2", "timestamp": time.time()}
+            {"message": "Hi", "from": "user2", "timestamp": time.time()}
         ]
-        
-        # Set up the mock response for _receive
-        self.messenger._receive = Mock(return_value=json.dumps({
+
+        # Set up mock socket
+        mock_sock_instance = Mock()
+        mock_socket.return_value = mock_sock_instance
+        mock_file = Mock()
+        mock_file.readline.return_value = json.dumps({
             "response": {
                 "type": "ok",
                 "messages": test_messages
             }
-        }))
-        
-        # Initialize and retrieve messages
-        self.messenger._connect = Mock()
+        })
+        mock_sock_instance.makefile.return_value = mock_file
+
+        # Initialize and authenticate
+        self.messenger._connect = Mock(return_value=True)
         self.messenger._authenticate = Mock(return_value=True)
         self.messenger.token = "test-token"
-        
+        self.messenger.connected = True
+        self.messenger.username = "user2"
+
+        # Retrieve messages and verify results
         messages = self.messenger.retrieve_all()
         self.assertEqual(len(messages), 2)
         self.assertIsInstance(messages[0], DirectMessage)
         self.assertIsInstance(messages[1], DirectMessage)
+        self.assertEqual(messages[0].message, "Hello")
+        self.assertEqual(messages[0].sender, "user1")
+        self.assertEqual(messages[1].message, "Hi")
+        self.assertEqual(messages[1].sender, "user2")
+        self.assertIsNotNone(messages[0].timestamp)
+        self.assertIsNotNone(messages[1].timestamp)
 
     def test_parse_messages(self):
         """Test message parsing"""

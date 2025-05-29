@@ -11,26 +11,61 @@ from ds_protocol import (
 
 class TestDSProtocol(unittest.TestCase):
     def test_format_auth_message(self):
-        """Test formatting of authentication message"""
+        """Test formatting of authentication message.
+
+        Verifies that the format_auth_message function correctly formats
+        the authentication message with the provided username and password.
+        """
+        # Test data
         username = "testuser"
         password = "testpass"
         expected = '{"authenticate": {"username": "testuser", "password": "testpass"}}'
+        
+        # Verify formatting
         self.assertEqual(format_auth_message(username, password), expected)
+        
+        # Test with special characters
+        username_special = "user@name"
+        password_special = "pass!word123"
+        expected_special = '{"authenticate": {"username": "user@name", "password": "pass!word123"}}'
+        self.assertEqual(format_auth_message(username_special, password_special), expected_special)
 
     def test_format_direct_message(self):
-        """Test formatting of direct message"""
+        """Test formatting of direct message.
+
+        Verifies that the format_direct_message function correctly formats
+        the message with all required fields including timestamp.
+        """
+        # Test data
         token = "test-token"
         recipient = "recipient"
         message = "Hello, World!"
         result = json.loads(format_direct_message(token, recipient, message))
         
+        # Verify message structure
         self.assertEqual(result["token"], token)
         self.assertEqual(result["directmessage"]["recipient"], recipient)
-        self.assertEqual(result["directmessage"]["entry"], message)
+        self.assertEqual(result["directmessage"]["message"], message)
         self.assertIn("timestamp", result["directmessage"])
+        
+        # Verify timestamp is valid
+        timestamp = float(result["directmessage"]["timestamp"])
+        self.assertTrue(isinstance(timestamp, float))
+        self.assertGreater(timestamp, 0)
+        
+        # Test with special characters
+        message_special = "Hello, World!\nHow are you?"
+        result_special = json.loads(format_direct_message(token, recipient, message_special))
+        self.assertEqual(result_special["directmessage"]["message"], message_special)
 
     def test_format_fetch_request(self):
-        """Test formatting of fetch request"""
+        """Test formatting of fetch request.
+
+        Verifies that the format_fetch_request function correctly formats
+        fetch requests for both 'all' and 'unread' types, and raises
+        DSPProtocolError for invalid types.
+        """
+        # Test data
         token = "test-token"
         
         # Test 'all' fetch type
@@ -45,6 +80,13 @@ class TestDSProtocol(unittest.TestCase):
         # Test invalid fetch type
         with self.assertRaises(DSPProtocolError):
             format_fetch_request(token, 'invalid')
+        
+        # Test case sensitivity
+        with self.assertRaises(DSPProtocolError):
+            format_fetch_request(token, 'ALL')
+        
+        with self.assertRaises(DSPProtocolError):
+            format_fetch_request(token, 'UnRead')
 
     def test_extract_json_valid(self):
         """Test extracting valid JSON response"""
